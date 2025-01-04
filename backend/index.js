@@ -2,21 +2,15 @@
     const connectDB = require('./src/config/database');
     const User = require('./models/user');
 const validateSignup = require('./utils/validateSignup');
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const cookieParser = require('cookie-parser');
+const { userAuth } = require('./middlewares/userAuth');
     const app = express();
     app.use(express.json());
-    app.use("/test", (req, res, next)=>{
-        // res.send("response 1 !!");
-        next();
-    }, (req, res, next)=>{
-       
-        next();
-         res.send("response 2 !!");
-    },
-    (req, res)=>{
-        res.send("response 3 !!");
-    }
-)
+    app.use(cookieParser());
+  
+
 app.patch("/user", async (req, res) => {
     const data = req.body;
     const Allowed_Updates = ["skills", "firstName", "lastName", "about", "photoUrl", "password","userId"];
@@ -84,9 +78,20 @@ app.post("/feed", async (req, res) => {
     }
 });
 
-app.post("/login", async(req, res) => {
+app.get("/profile", userAuth, async(req, res)=>{
+        const user = req.user;
+        // const {token} = req.cookies;
+        // const decodedMessage =await jwt.verify(token, "devtinder");
+        // const {_id} = decodedMessage;
+        // const userData =await User.findById(_id);
+        // console.log("user",userData);
+       res.send(user);
+});
+
+app.post("/login", async (req, res) => {
     const userEmail = req.body.email; 
     const userPassword = req.body.password;
+    console.log("userEmail",userEmail, userPassword);
     try {
         // Update user by ID
         // const updatedUser = await User.findByIdAndUpdate({_id: userId}, firstName, {returnDocument: "after", runValidators: true});
@@ -94,10 +99,14 @@ app.post("/login", async(req, res) => {
         console.log("userPresent",isUserPresent);
         if(isUserPresent){
         //  const hashedUserPassword = isUserPresent.password;
-         const isUserValid =await bcrypt.compare(userPassword, isUserPresent.password);
+        console.log("Hashed Password:", isUserPresent.password);
+         const isUserValid = await bcrypt.compare(userPassword, isUserPresent.password);
          if (isUserValid){
-            res.send("User is valid user");
+            const token = jwt.sign( {_id: isUserPresent._id}, "devtinder", { expiresIn: "10h" });
+            res.cookie("token", token);
+            res.send("Login successfull!!!");
          }else{
+            console.log("Invalid password");
             throw new Error("Invalid user");
          }
         }else{
